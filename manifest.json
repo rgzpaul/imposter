@@ -1,0 +1,14 @@
+{
+    "name": "Imposter",
+    "short_name": "Imposter",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#4caf50",
+    "icons": [
+        {
+            "src": "icon.png",
+            "sizes": "96x96",
+            "type": "image/png"
+        }
+    ]
+}
