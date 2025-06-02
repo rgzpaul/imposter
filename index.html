@@ -148,13 +148,13 @@
                         } else if (response.role === 'buono') {
                             $('#role-images').removeClass('hidden');
                             $('#evil-image').addClass('hidden');
-                            if (response.is_fool) {
-                                $('#good-image').addClass('hidden');
-                                $('#fool-image').removeClass('hidden');
-                            } else {
-                                $('#fool-image').addClass('hidden');
-                                $('#good-image').removeClass('hidden');
-                            }
+                            $('#fool-image').addClass('hidden');
+                            $('#good-image').removeClass('hidden');
+                        } else if (response.role === 'fool') {
+                            $('#role-images').removeClass('hidden');
+                            $('#evil-image').addClass('hidden');
+                            $('#good-image').addClass('hidden');
+                            $('#fool-image').removeClass('hidden');
                         } else {
                             $('#role-images').addClass('hidden');
                             $('.role-image').addClass('hidden');

@@ -74,9 +74,6 @@
                 $.get('/assets/server.php', { action: 'get_admin_data' }, function (response) {
                     var giocatoriHTML = response.giocatori.map(function (giocatore) {
                         var ruolo = giocatore.ruolo ? giocatore.ruolo : '-';
-                        if (ruolo === 'buono' && giocatore.is_fool) {
-                            ruolo = 'fool';
-                        }
                         var numero = giocatore.numero !== null ? giocatore.numero : '-';
 
                         var ruoloClass = 'text-gray-400';
