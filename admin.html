@@ -37,7 +37,6 @@
                     <tr class="bg-gray-700">
                         <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Nickname</th>
                         <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Ruolo</th>
-                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Numero</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-700">
@@ -83,8 +82,7 @@
 
                         return '<tr>' +
                             '<td class="px-4 py-3 text-gray-100">' + giocatore.nickname + '</td>' +
-                            '<td class="px-4 py-3 ' + ruoloClass + '">' + ruolo + '</td>' +
-                            '<td class="px-4 py-3 text-gray-300">' + numero + '</td></tr>';
+                            '<td class="px-4 py-3 ' + ruoloClass + '">' + ruolo + '</td></tr>';
                     }).join('');
                     $('#players-table tbody').html(giocatoriHTML);
 
