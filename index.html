@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="it" class="min-h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Imposter Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon.png">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col items-center justify-center bg-gray-950 text-gray-300 p-6"
+    style="font-family: 'Inter', sans-serif;">
+
+    <!-- Nickname Container -->
+    <div id="nickname-container" class="bg-gray-900 p-8 rounded-lg w-full max-w-md" style="display: none;">
+        <h2 class="text-2xl font-medium text-white mb-6">Inserisci il tuo nickname</h2>
+        <input type="text" id="nickname" placeholder="Nickname"
+            class="w-full h-11 px-4 mb-4 rounded bg-gray-800 text-gray-100 placeholder-gray-500 border border-gray-700 focus:outline-none focus:border-gray-600">
+        <button id="join-game" class="w-full h-11 bg-gray-700 text-white rounded hover:bg-gray-600">
+            Entra
+        </button>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container" class="bg-gray-900 p-8 rounded-lg w-full max-w-md" style="display: none;">
+        <h4 id="game-id" class="text-sm text-gray-500 mb-2">ID Partita: </h4>
+        <h2 class="text-2xl font-medium text-white mb-6">Players</h2>
+
+        <ol id="player-list" class="list-none p-0 mb-6 space-y-2">
+        </ol>
+
+        <div id="role-images" class="hidden mb-6">
+            <img class="role-image hidden w-16 mx-auto" id="good-image" src="/images/good.png">
+            <img class="role-image hidden w-16 mx-auto" id="evil-image" src="/images/evil.png">
+            <img class="role-image hidden w-16 mx-auto" id="fool-image" src="/images/fool.png">
+        </div>
+
+        <h3 id="word-display" class="text-lg text-gray-100 mb-6"></h3>
+
+        <button id="start-game" class="w-full h-11 bg-gray-700 text-white rounded mb-2 hover:bg-gray-600"
+            style="display: none;">
+            Avvia
+        </button>
+        <button id="leave-game" class="w-full h-11 bg-gray-800 text-white rounded hover:bg-gray-700">
+            Esci
+        </button>
+    </div>
+
+    <p id="last-update" class="mt-4 text-xs text-gray-600 hidden">Ultimo aggiornamento: --:--</p>
+
+    <p id="credits" class="mt-auto text-xs text-gray-700">Made by Paul</p>
+    <a class="w-20 h-4 opacity-0" href="/admin"></a>
+
+    <script>
+        $(document).ready(function () {
+            var nickname = '';
+            var isLoggedIn = false;
+
+            if (localStorage.getItem('nickname')) {
+                nickname = localStorage.getItem('nickname');
+                entraInGioco(nickname);
+            } else {
+                $('#nickname-container').show();
+                $('#last-update').removeClass('hidden');
+            }
+
+            function entraInGioco(nickname) {
+                $.post('/assets/server.php', { action: 'join', nickname: nickname }, function (response) {
+                    if (response.status === 'success') {
+                        $('#nickname-container').hide();
+                        $('#game-container').show();
+                        $('#last-update').removeClass('hidden');
+                        isLoggedIn = true;
+                        localStorage.setItem('nickname', nickname);
+                        aggiornaDati();
+                    }
+                }, 'json').fail(function () {
+                    console.log('Errore di connessione al server.');
+                });
+            }
+
+            $('#join-game').click(function () {
+                nickname = $('#nickname').val().trim();
+                if (nickname !== '') {
+                    entraInGioco(nickname);
+                }
+            });
+
+            $('#nickname').keypress(function (e) {
+                if (e.which == 13) {
+                    $('#join-game').click();
+                }
+            });
+
+            $('#leave-game').click(function () {
+                $.post('/assets/server.php', { action: 'leave', nickname: nickname }, function (response) {
+                    if (response.status === 'success') {
+                        $('#game-container').hide();
+                        $('#nickname-container').show();
+                        $('#nickname').val('');
+                        isLoggedIn = false;
+                        localStorage.removeItem('nickname');
+                        $('#last-update').text('Ultimo aggiornamento: --:--');
+                    }
+                }, 'json').fail(function () {
+                    console.log('Errore di connessione al server.');
+                });
+            });
+
+            function aggiornaDati() {
+                if (isLoggedIn) {
+                    $.get('/assets/server.php', { action: 'get_all_data', nickname: nickname, _: new Date().getTime() }, function (response) {
+                        response.giocatori.sort(function (a, b) {
+                            return (a.numero || 0) - (b.numero || 0);
+                        });
+                        var listaGiocatori = response.giocatori.map(function (giocatore, index) {
+                            return '<li class="p-3 bg-gray-800 rounded text-gray-100">' +
+                                (index + 1) + '. ' + giocatore.nickname + '</li>';
+                        }).join('');
+                        $('#player-list').html(listaGiocatori);
+
+                        if (response.giocatori.length > 0) {
+                            var primoGiocatore = response.giocatori.reduce(function (prev, current) {
+                                return (prev.login_time < current.login_time) ? prev : current;
+                            });
+                            if (primoGiocatore.nickname === nickname) {
+                                $('#start-game').show();
+                            } else {
+                                $('#start-game').hide();
+                            }
+                        } else {
+                            $('#start-game').hide();
+                        }
+                        $('#game-id').text('ID Partita: ' + response.game_id);
+
+                        $('#word-display').html('La parola è <span class="text-emerald-400 font-medium">' + response.word + '</span>');
+
+                        if (response.role === 'impostore') {
+                            $('#role-images').removeClass('hidden');
+                            $('#good-image').addClass('hidden');
+                            $('#fool-image').addClass('hidden');
+                            $('#evil-image').removeClass('hidden');
+                        } else if (response.role === 'buono') {
+                            $('#role-images').removeClass('hidden');
+                            $('#evil-image').addClass('hidden');
+                            if (response.is_fool) {
+                                $('#good-image').addClass('hidden');
+                                $('#fool-image').removeClass('hidden');
+                            } else {
+                                $('#fool-image').addClass('hidden');
+                                $('#good-image').removeClass('hidden');
+                            }
+                        } else {
+                            $('#role-images').addClass('hidden');
+                            $('.role-image').addClass('hidden');
+                        }
+
+                        var userStillInGame = response.giocatori.some(function (giocatore) {
+                            return giocatore.nickname === nickname;
+                        });
+
+                        if (!userStillInGame) {
+                            localStorage.removeItem('nickname');
+                            window.location.reload();
+                        }
+
+                        var currentTime = new Date();
+                        var formattedTime = currentTime.toLocaleTimeString('it-IT', { hour12: false });
+                        $('#last-update').text('Ultimo aggiornamento: ' + formattedTime);
+                    }, 'json').fail(function () {
+                        console.log('Errore di connessione al server.');
+                    });
+                }
+            }
+
+            $('#start-game').click(function () {
+                $.post('/assets/server.php', { action: 'start_game' }, function (response) {
+                    if (response.status === 'success') {
+                        console.log('Il primo giocatore a iniziare è: ' + response.first_player + '\nL\'impostore è stato selezionato.');
+                        $('#game-id').text('ID Partita: ' + response.game_id);
+                        aggiornaDati();
+                    }
+                }, 'json').fail(function () {
+                    console.log('Errore di connessione al server.');
+                });
+            });
+
+            setInterval(aggiornaDati, 1000);
+        });
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,28 @@
+{
+    "giocatori": [
+        {
+            "nickname": "ppp",
+            "ruolo": "buono",
+            "numero": 3,
+            "login_time": 1748887149,
+            "is_fool": false
+        },
+        {
+            "nickname": "pppppp",
+            "ruolo": "buono",
+            "numero": 1,
+            "login_time": 1748887158,
+            "is_fool": true
+        },
+        {
+            "nickname": "54353",
+            "ruolo": "impostore",
+            "numero": 2,
+            "login_time": 1748887247,
+            "is_fool": false
+        }
+    ],
+    "parola": "rapido",
+    "brutal_mode": false,
+    "game_id": "G7"
+}

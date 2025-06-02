@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="it" class="min-h-full">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin | Imposter Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon.png">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+        /* Custom checkbox */
+        #brutal-mode-toggle:checked::before {
+            content: "✓";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col items-center justify-center bg-gray-950 text-gray-300 p-6"
+    style="font-family: 'Inter', sans-serif;">
+
+    <div id="admin-container" class="bg-gray-900 p-8 rounded-lg w-full max-w-2xl">
+        <h2 class="text-2xl font-medium text-white mb-6">Gestione Giocatori</h2>
+
+        <!-- Players Table -->
+        <div class="bg-gray-800 rounded overflow-hidden mb-6">
+            <table id="players-table" class="w-full">
+                <thead>
+                    <tr class="bg-gray-700">
+                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Nickname</th>
+                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Ruolo</th>
+                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Numero</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Game Info -->
+        <div id="game-info" class="space-y-2 mb-6 text-sm">
+            <p><span class="text-gray-500">ID Partita:</span> <span id="game-id" class="text-gray-100">-</span></p>
+            <p><span class="text-gray-500">Parola:</span> <span id="game-word" class="text-gray-100">-</span></p>
+        </div>
+
+        <!-- Brutal Mode -->
+        <div class="mb-6">
+            <label for="brutal-mode-toggle" class="flex items-center cursor-pointer">
+                <input type="checkbox" id="brutal-mode-toggle"
+                    class="appearance-none w-5 h-5 bg-gray-700 rounded cursor-pointer relative checked:bg-gray-600">
+                <span class="ml-3 text-gray-300 text-sm">
+                    Brutal Mode (il primo può essere impostore)
+                </span>
+            </label>
+        </div>
+
+        <!-- Reset Button -->
+        <button id="reset-session" class="w-full h-11 bg-gray-800 text-white rounded hover:bg-gray-700">
+            Reset
+        </button>
+    </div>
+
+    <script>
+        $(document).ready(function () {
+            function aggiornaDatiAdmin() {
+                $.get('/assets/server.php', { action: 'get_admin_data' }, function (response) {
+                    var giocatoriHTML = response.giocatori.map(function (giocatore) {
+                        var ruolo = giocatore.ruolo ? giocatore.ruolo : '-';
+                        if (ruolo === 'buono' && giocatore.is_fool) {
+                            ruolo = 'fool';
+                        }
+                        var numero = giocatore.numero !== null ? giocatore.numero : '-';
+
+                        var ruoloClass = 'text-gray-400';
+                        if (ruolo === 'impostore') ruoloClass = 'text-red-400';
+                        else if (ruolo === 'fool') ruoloClass = 'text-yellow-400';
+                        else if (ruolo === 'buono') ruoloClass = 'text-green-400';
+
+                        return '<tr>' +
+                            '<td class="px-4 py-3 text-gray-100">' + giocatore.nickname + '</td>' +
+                            '<td class="px-4 py-3 ' + ruoloClass + '">' + ruolo + '</td>' +
+                            '<td class="px-4 py-3 text-gray-300">' + numero + '</td></tr>';
+                    }).join('');
+                    $('#players-table tbody').html(giocatoriHTML);
+
+                    $('#brutal-mode-toggle').prop('checked', response.brutal_mode);
+                    $('#game-id').text(response.game_id ? response.game_id : '-');
+                    $('#game-word').text(response.game_word ? response.game_word : '-');
+
+                }, 'json').fail(function () {
+                    console.log('Errore di connessione al server.');
+                });
+            }
+
+            $('#brutal-mode-toggle').change(function () {
+                var brutal_mode = $(this).is(':checked');
+                $.post('/assets/server.php', { action: 'set_brutal_mode', brutal_mode: brutal_mode }, function (response) {
+                    if (response.status === 'success') {
+                        console.log('Brutal Mode aggiornata');
+                    }
+                }, 'json').fail(function () {
+                    console.log('Errore di connessione al server.');
+                });
+            });
+
+            $('#reset-session').click(function () {
+                if (confirm('Sei sicuro di voler resettare la sessione?')) {
+                    $.post('/assets/server.php', { action: 'reset' }, function (response) {
+                        if (response.status === 'success') {
+                            console.log(response.message);
+                            location.reload();
+                        }
+                    }, 'json').fail(function () {
+                        console.log('Errore di connessione al server.');
+                    });
+                }
+            });
+
+            aggiornaDatiAdmin();
+            setInterval(aggiornaDatiAdmin, 2000);
+        });
+    </script>
+
+</body>
+
+</html>
