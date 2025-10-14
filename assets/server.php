@@ -22,9 +22,9 @@ function caricaJson($file)
 function salvaJson($file, $data)
 {
     $fp = fopen($file, 'w');
-    if (flock($fp, LOCK_EX)) { // Blocca il file per la scrittura
+    if (flock($fp, LOCK_EX)) {
         fwrite($fp, json_encode($data, JSON_PRETTY_PRINT));
-        flock($fp, LOCK_UN); // Rilascia il blocco
+        flock($fp, LOCK_UN);
         fclose($fp);
         error_log($file . ' salvato correttamente.');
     } else {
@@ -54,13 +54,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'];
 
     if ($action == 'join') {
-        $nickname = trim($_POST['nickname']);
+        $nickname = trim($_POST['nickname']); // email come ID
+        $display_name = isset($_POST['display_name']) ? trim($_POST['display_name']) : $nickname;
         $configData = caricaJson($config_file);
 
         $giocatore_presente = false;
-        foreach ($configData['giocatori'] as $giocatore) {
+        $giocatore_index = -1;
+        foreach ($configData['giocatori'] as $index => $giocatore) {
             if (strcasecmp($giocatore['nickname'], $nickname) == 0) {
                 $giocatore_presente = true;
+                $giocatore_index = $index;
                 break;
             }
         }
@@ -68,10 +71,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$giocatore_presente) {
             array_push($configData['giocatori'], [
                 'nickname' => $nickname,
+                'display_name' => $display_name,
                 'ruolo' => '',
                 'numero' => null,
                 'login_time' => time()
             ]);
+            salvaJson($config_file, $configData);
+        } else {
+            // Aggiorna display_name se già presente
+            $configData['giocatori'][$giocatore_index]['display_name'] = $display_name;
             salvaJson($config_file, $configData);
         }
 
@@ -131,12 +139,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } while ($configData['giocatori'][$indice_impostore]['numero'] == 1);
             }
 
-            // First assign all players as "buono"
             foreach ($configData['giocatori'] as $index => &$giocatore) {
                 $giocatore['ruolo'] = ($index == $indice_impostore) ? 'impostore' : 'buono';
             }
 
-            // Randomly select one good player to be the fool
             $goodPlayersIndices = array_keys(array_filter($configData['giocatori'], function ($g) {
                 return $g['ruolo'] === 'buono';
             }));
@@ -156,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             echo json_encode([
                 'status' => 'success',
-                'first_player' => $configData['giocatori'][$indice_impostore]['nickname'],
+                'first_player' => $configData['giocatori'][$indice_impostore]['display_name'] ?? $configData['giocatori'][$indice_impostore]['nickname'],
                 'game_id' => $configData['game_id']
             ]);
         } else {
@@ -199,18 +205,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
     }
 
-    // **Nuove Azioni Combinata**
     if ($action == 'get_all_data') {
         $nickname = trim($_GET['nickname']);
         $configData = caricaJson($config_file);
 
-        // Trova la parola e il ruolo per il nickname
         $word = '';
         $role = '';
         foreach ($configData['giocatori'] as $giocatore) {
             if (strcasecmp($giocatore['nickname'], $nickname) == 0) {
                 $role = $giocatore['ruolo'];
-                // Both fool and buono players see the word
                 $word = ($giocatore['ruolo'] === 'impostore') ? '???' : $configData['parola'];
                 break;
             }

@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" sizes="192x192" href="/images/icon.png">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
     </style>
@@ -16,14 +17,14 @@
 <body class="min-h-full flex flex-col items-center bg-gray-950 text-gray-300 p-6"
     style="font-family: 'Inter', sans-serif;">
 
-    <!-- Nickname Container -->
+    <!-- Login Container -->
     <div id="nickname-container" class="bg-gray-900 p-8 rounded-lg w-full max-w-md" style="display: none;">
-        <h1 class="text-2xl font-medium text-white mb-6">Inserisci il tuo nickname</h1>
-        <input type="text" id="nickname" placeholder="Nickname"
-            class="w-full h-11 px-4 mb-4 rounded bg-gray-800 text-gray-100 placeholder-gray-500 border border-gray-700 focus:outline-none focus:border-gray-600">
-        <button id="join-game" class="w-full h-11 bg-gray-700 text-white rounded hover:bg-gray-600">
-            Entra
-        </button>
+        <h1 class="text-2xl font-medium text-white mb-6">Accedi per giocare</h1>
+        <div id="g_id_onload"
+             data-client_id="367803246967-1do09iukgkfag734e93krg1taj3300c6.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black" data-text="signin_with" data-shape="rectangular"></div>
     </div>
 
     <!-- Game Container -->
@@ -57,70 +58,88 @@
     <a class="w-20 h-6 opacity-0" target="_blank" href="/admin"></a>
 
     <script>
-        $(document).ready(function () {
-            var nickname = '';
-            var isLoggedIn = false;
-
-            if (localStorage.getItem('nickname')) {
-                nickname = localStorage.getItem('nickname');
-                entraInGioco(nickname);
+        function handleCredentialResponse(response) {
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            const fullName = payload.name;
+            const email = payload.email;
+            
+            // Formatta come "Name S."
+            const nameParts = fullName.trim().split(' ');
+            let displayName;
+            if (nameParts.length > 1) {
+                const firstName = nameParts[0];
+                const lastInitial = nameParts[nameParts.length - 1].charAt(0).toUpperCase();
+                displayName = firstName + ' ' + lastInitial + '.';
             } else {
-                $('#nickname-container').show();
-                $('#last-update').removeClass('hidden');
+                displayName = fullName;
             }
+            
+            // Salva email come ID e display name per mostrare
+            localStorage.setItem('user_id', email);
+            localStorage.setItem('display_name', displayName);
+            localStorage.setItem('login_time', Date.now());
+            
+            // Entra in gioco con email come nickname (ID univoco)
+            $.post('/assets/server.php', { action: 'join', nickname: email, display_name: displayName }, function (resp) {
+                if (resp.status === 'success') {
+                    $('#nickname-container').hide();
+                    $('#game-container').show();
+                    $('#last-update').removeClass('hidden');
+                    window.currentNickname = email;
+                    window.displayName = displayName;
+                    window.isLoggedIn = true;
+                    window.aggiornaDati();
+                }
+            }, 'json');
+        }
 
-            function entraInGioco(nickname) {
-                $.post('/assets/server.php', { action: 'join', nickname: nickname }, function (response) {
+        $(document).ready(function () {
+            window.currentNickname = '';
+            window.displayName = '';
+            window.isLoggedIn = false;
+
+            // Controlla sessione (2 ore)
+            const storedUserId = localStorage.getItem('user_id');
+            const storedDisplayName = localStorage.getItem('display_name');
+            const loginTime = localStorage.getItem('login_time');
+
+            if (storedUserId && loginTime && (Date.now() - loginTime < 2 * 60 * 60 * 1000)) {
+                window.currentNickname = storedUserId;
+                window.displayName = storedDisplayName;
+                $.post('/assets/server.php', { action: 'join', nickname: storedUserId, display_name: storedDisplayName }, function (response) {
                     if (response.status === 'success') {
                         $('#nickname-container').hide();
                         $('#game-container').show();
                         $('#last-update').removeClass('hidden');
-                        isLoggedIn = true;
-                        localStorage.setItem('nickname', nickname);
+                        window.isLoggedIn = true;
                         aggiornaDati();
                     }
-                }, 'json').fail(function () {
-                    console.log('Errore di connessione al server.');
-                });
+                }, 'json');
+            } else {
+                localStorage.clear();
+                $('#nickname-container').show();
+                $('#last-update').removeClass('hidden');
             }
 
-            $('#join-game').click(function () {
-                nickname = $('#nickname').val().trim();
-                if (nickname !== '') {
-                    entraInGioco(nickname);
-                }
-            });
-
-            $('#nickname').keypress(function (e) {
-                if (e.which == 13) {
-                    $('#join-game').click();
-                }
-            });
-
             $('#leave-game').click(function () {
-                $.post('/assets/server.php', { action: 'leave', nickname: nickname }, function (response) {
+                $.post('/assets/server.php', { action: 'leave', nickname: window.currentNickname }, function (response) {
                     if (response.status === 'success') {
-                        $('#game-container').hide();
-                        $('#nickname-container').show();
-                        $('#nickname').val('');
-                        isLoggedIn = false;
-                        localStorage.removeItem('nickname');
-                        $('#last-update').text('Ultimo aggiornamento: --:--');
+                        localStorage.clear();
+                        location.reload();
                     }
-                }, 'json').fail(function () {
-                    console.log('Errore di connessione al server.');
-                });
+                }, 'json');
             });
 
             function aggiornaDati() {
-                if (isLoggedIn) {
-                    $.get('/assets/server.php', { action: 'get_all_data', nickname: nickname, _: new Date().getTime() }, function (response) {
+                if (window.isLoggedIn) {
+                    $.get('/assets/server.php', { action: 'get_all_data', nickname: window.currentNickname, _: new Date().getTime() }, function (response) {
                         response.giocatori.sort(function (a, b) {
                             return (a.numero || 0) - (b.numero || 0);
                         });
                         var listaGiocatori = response.giocatori.map(function (giocatore, index) {
+                            var name = giocatore.display_name || giocatore.nickname;
                             return '<li class="p-3 bg-gray-800 rounded text-gray-100">' +
-                                (index + 1) + '. ' + giocatore.nickname + '</li>';
+                                (index + 1) + '. ' + name + '</li>';
                         }).join('');
                         $('#player-list').html(listaGiocatori);
 
@@ -128,7 +147,7 @@
                             var primoGiocatore = response.giocatori.reduce(function (prev, current) {
                                 return (prev.login_time < current.login_time) ? prev : current;
                             });
-                            if (primoGiocatore.nickname === nickname) {
+                            if (primoGiocatore.nickname === window.currentNickname) {
                                 $('#start-game').show();
                             } else {
                                 $('#start-game').hide();
@@ -161,33 +180,31 @@
                         }
 
                         var userStillInGame = response.giocatori.some(function (giocatore) {
-                            return giocatore.nickname === nickname;
+                            return giocatore.nickname === window.currentNickname;
                         });
 
                         if (!userStillInGame) {
-                            localStorage.removeItem('nickname');
+                            localStorage.removeItem('user_id');
+                            localStorage.removeItem('display_name');
+                            localStorage.removeItem('login_time');
                             window.location.reload();
                         }
 
                         var currentTime = new Date();
                         var formattedTime = currentTime.toLocaleTimeString('it-IT', { hour12: false });
                         $('#last-update').text('Ultimo aggiornamento: ' + formattedTime);
-                    }, 'json').fail(function () {
-                        console.log('Errore di connessione al server.');
-                    });
+                    }, 'json');
                 }
             }
+            window.aggiornaDati = aggiornaDati;
 
             $('#start-game').click(function () {
                 $.post('/assets/server.php', { action: 'start_game' }, function (response) {
                     if (response.status === 'success') {
-                        console.log('Il primo giocatore a iniziare è: ' + response.first_player + '\nL\'impostore è stato selezionato.');
                         $('#game-id').text('ID Partita: ' + response.game_id);
                         aggiornaDati();
                     }
-                }, 'json').fail(function () {
-                    console.log('Errore di connessione al server.');
-                });
+                }, 'json');
             });
 
             setInterval(aggiornaDati, 1000);

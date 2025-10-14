@@ -1,6 +1,6 @@
 {
     "giocatori": [],
-    "parola": "pace",
-    "brutal_mode": true,
-    "game_id": "K8"
+    "parola": "",
+    "brutal_mode": false,
+    "game_id": ""
 }

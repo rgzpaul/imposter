@@ -35,7 +35,7 @@
             <table id="players-table" class="w-full">
                 <thead>
                     <tr class="bg-gray-700">
-                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Nickname</th>
+                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Nome</th>
                         <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Ruolo</th>
                     </tr>
                 </thead>
@@ -73,7 +73,7 @@
                 $.get('/assets/server.php', { action: 'get_admin_data' }, function (response) {
                     var giocatoriHTML = response.giocatori.map(function (giocatore) {
                         var ruolo = giocatore.ruolo ? giocatore.ruolo : '-';
-                        var numero = giocatore.numero !== null ? giocatore.numero : '-';
+                        var nome = giocatore.display_name || giocatore.nickname;
 
                         var ruoloClass = 'text-gray-400';
                         if (ruolo === 'impostore') ruoloClass = 'text-red-400';
@@ -81,7 +81,7 @@
                         else if (ruolo === 'buono') ruoloClass = 'text-green-400';
 
                         return '<tr>' +
-                            '<td class="px-4 py-3 text-gray-100">' + giocatore.nickname + '</td>' +
+                            '<td class="px-4 py-3 text-gray-100">' + nome + '</td>' +
                             '<td class="px-4 py-3 ' + ruoloClass + '">' + ruolo + '</td></tr>';
                     }).join('');
                     $('#players-table tbody').html(giocatoriHTML);
