@@ -50,6 +50,14 @@ function assegnaNumeriCasuali($giocatori)
     return $giocatori;
 }
 
+function logPlayer($nickname, $display_name)
+{
+    $log_file = 'players.log';
+    $timestamp = date('Y-m-d H:i:s');
+    $log_entry = "[{$timestamp}] Nickname: {$nickname} | Name: {$display_name}\n";
+    file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'];
 
@@ -77,6 +85,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'login_time' => time()
             ]);
             salvaJson($config_file, $configData);
+
+            // Log del nuovo giocatore
+            logPlayer($nickname, $display_name);
         } else {
             // Aggiorna display_name se già presente
             $configData['giocatori'][$giocatore_index]['display_name'] = $display_name;
