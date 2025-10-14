@@ -103,7 +103,7 @@
             const storedDisplayName = localStorage.getItem('display_name');
             const loginTime = localStorage.getItem('login_time');
 
-            if (storedUserId && loginTime && (Date.now() - loginTime < 2 * 60 * 60 * 1000)) {
+            if (storedUserId && loginTime && (Date.now() - loginTime < 1 * 60 * 60 * 1000)) {
                 window.currentNickname = storedUserId;
                 window.displayName = storedDisplayName;
                 $.post('/assets/server.php', { action: 'join', nickname: storedUserId, display_name: storedDisplayName }, function (response) {
@@ -212,5 +212,6 @@
     </script>
 
 </body>
+
 
 </html>
