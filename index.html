@@ -248,6 +248,8 @@
                     if (response.status === 'success') {
                         $('#game-id').text('ID Partita: ' + response.game_id);
                         aggiornaDati();
+                    } else if (response.message) {
+                        alert(response.message);
                     }
                 }, 'json');
             });

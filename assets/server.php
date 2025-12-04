@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if (count($stanzaPlayerIndices) > 0) {
+        if (count($stanzaPlayerIndices) >= 3) {
             // Assign random numbers only to stanza players
             $numeriDisponibili = range(1, count($stanzaPlayerIndices));
             shuffle($numeriDisponibili);
@@ -237,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'game_id' => $stanzaGameId
             ]);
         } else {
-            echo json_encode(['status' => 'error', 'message' => 'Nessun giocatore disponibile']);
+            echo json_encode(['status' => 'error', 'message' => 'Servono almeno 3 giocatori per iniziare']);
         }
     }
 }
