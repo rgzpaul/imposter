@@ -63,7 +63,7 @@
         </button>
     </div>
 
-    <p id="last-update" class="my-4 text-xs text-gray-600 hidden">Ultimo aggiornamento: --:--</p>
+    <p id="last-update" class="my-4 text-xs text-gray-600 hidden">--:--</p>
 
     <p id="credits" class="mt-auto text-xs text-gray-700">Made by Paul</p>
     <a class="w-20 h-6 opacity-0" href="/admin"></a>
@@ -235,7 +235,7 @@
 
                         var currentTime = new Date();
                         var formattedTime = currentTime.toLocaleTimeString('it-IT', { hour12: false });
-                        $('#last-update').text('Ultimo aggiornamento: ' + formattedTime);
+                        $('#last-update').text(formattedTime);
                     }, 'json');
                 }
             }
