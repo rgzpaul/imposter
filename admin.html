@@ -30,24 +30,8 @@
     <div id="admin-container" class="bg-gray-900 p-8 rounded-lg w-full max-w-2xl">
         <h1 class="text-2xl font-medium text-white mb-6">Gestione giocatori</h1>
 
-        <!-- Players Table -->
-        <div class="bg-gray-800 rounded overflow-hidden mb-6">
-            <table id="players-table" class="w-full">
-                <thead>
-                    <tr class="bg-gray-700">
-                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Nome</th>
-                        <th class="px-4 py-3 text-left text-gray-300 text-sm uppercase">Ruolo</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-700">
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Game Info -->
-        <div id="game-info" class="space-y-2 mb-6 text-sm">
-            <p><span class="text-gray-500">ID Partita:</span> <span id="game-id" class="text-gray-100">-</span></p>
-            <p><span class="text-gray-500">Parola:</span> <span id="game-word" class="text-gray-100">-</span></p>
+        <!-- Players grouped by Stanza -->
+        <div id="players-container" class="space-y-4 mb-6">
         </div>
 
         <!-- Brutal Mode -->
@@ -74,24 +58,53 @@
         $(document).ready(function () {
             function aggiornaDatiAdmin() {
                 $.get('/assets/server.php', { action: 'get_admin_data' }, function (response) {
-                    var giocatoriHTML = response.giocatori.map(function (giocatore) {
-                        var ruolo = giocatore.ruolo ? giocatore.ruolo : '-';
-                        var nome = giocatore.display_name || giocatore.nickname;
+                    // Group players by id_stanza
+                    var stanzaGroups = {};
+                    response.giocatori.forEach(function(giocatore) {
+                        var stanza = giocatore.id_stanza || '(nessuna)';
+                        if (!stanzaGroups[stanza]) {
+                            stanzaGroups[stanza] = {
+                                players: [],
+                                game_id: giocatore.stanza_game_id || '-',
+                                word: giocatore.stanza_parola || '-'
+                            };
+                        }
+                        stanzaGroups[stanza].players.push(giocatore);
+                    });
 
-                        var ruoloClass = 'text-gray-400';
-                        if (ruolo === 'impostore') ruoloClass = 'text-red-400';
-                        else if (ruolo === 'fool') ruoloClass = 'text-yellow-400';
-                        else if (ruolo === 'buono') ruoloClass = 'text-green-400';
+                    // Build HTML for each stanza group
+                    var containerHTML = '';
+                    Object.keys(stanzaGroups).sort().forEach(function(stanza) {
+                        var group = stanzaGroups[stanza];
+                        containerHTML += '<div class="bg-gray-800 rounded overflow-hidden">';
+                        containerHTML += '<div class="bg-gray-700 px-4 py-2 flex justify-between items-center">';
+                        containerHTML += '<span class="text-gray-100 font-medium">Stanza: ' + stanza + '</span>';
+                        containerHTML += '<span class="text-xs text-gray-400">ID: ' + group.game_id + ' | Parola: ' + group.word + '</span>';
+                        containerHTML += '</div>';
+                        containerHTML += '<table class="w-full"><thead><tr class="bg-gray-750">';
+                        containerHTML += '<th class="px-4 py-2 text-left text-gray-400 text-xs uppercase">Nome</th>';
+                        containerHTML += '<th class="px-4 py-2 text-left text-gray-400 text-xs uppercase">Ruolo</th>';
+                        containerHTML += '</tr></thead><tbody class="divide-y divide-gray-700">';
 
-                        return '<tr>' +
-                            '<td class="px-4 py-3 text-gray-100">' + nome + '</td>' +
-                            '<td class="px-4 py-3 ' + ruoloClass + '">' + ruolo + '</td></tr>';
-                    }).join('');
-                    $('#players-table tbody').html(giocatoriHTML);
+                        group.players.forEach(function(giocatore) {
+                            var ruolo = giocatore.ruolo ? giocatore.ruolo : '-';
+                            var nome = giocatore.display_name || giocatore.nickname;
+                            var ruoloClass = 'text-gray-400';
+                            if (ruolo === 'impostore') ruoloClass = 'text-red-400';
+                            else if (ruolo === 'fool') ruoloClass = 'text-yellow-400';
+                            else if (ruolo === 'buono') ruoloClass = 'text-green-400';
 
+                            containerHTML += '<tr>';
+                            containerHTML += '<td class="px-4 py-3 text-gray-100">' + nome + '</td>';
+                            containerHTML += '<td class="px-4 py-3 ' + ruoloClass + '">' + ruolo + '</td>';
+                            containerHTML += '</tr>';
+                        });
+
+                        containerHTML += '</tbody></table></div>';
+                    });
+
+                    $('#players-container').html(containerHTML);
                     $('#brutal-mode-toggle').prop('checked', response.brutal_mode);
-                    $('#game-id').text(response.game_id ? response.game_id : '-');
-                    $('#game-word').text(response.game_word ? response.game_word : '-');
 
                 }, 'json').fail(function () {
                     console.log('Errore di connessione al server.');

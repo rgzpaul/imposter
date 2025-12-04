@@ -30,6 +30,17 @@
     <!-- Game Container -->
     <div id="game-container" class="bg-gray-900 p-8 rounded-lg w-full max-w-md" style="display: none;">
         <h4 id="game-id" class="text-sm text-gray-500 mb-2">ID Partita: </h4>
+
+        <div class="mb-4">
+            <label for="id-stanza" class="block text-sm text-gray-400 mb-1">ID Stanza (only numbers, max 4)</label>
+            <input type="text" id="id-stanza"
+                   class="w-full h-10 px-3 bg-gray-800 text-white rounded border border-gray-700 focus:border-gray-500 focus:outline-none"
+                   placeholder="Es: 1234"
+                   maxlength="4"
+                   pattern="[0-9]*"
+                   inputmode="numeric">
+        </div>
+
         <h2 class="text-2xl font-medium text-white mb-6">Players</h2>
 
         <ol id="player-list" class="list-none p-0 mb-6 space-y-2">
@@ -78,9 +89,12 @@
             localStorage.setItem('user_id', email);
             localStorage.setItem('display_name', displayName);
             localStorage.setItem('login_time', Date.now());
-            
+
+            // Get id_stanza from localStorage if available
+            var idStanza = localStorage.getItem('id_stanza') || '';
+
             // Entra in gioco con email come nickname (ID univoco)
-            $.post('/assets/server.php', { action: 'join', nickname: email, display_name: displayName }, function (resp) {
+            $.post('/assets/server.php', { action: 'join', nickname: email, display_name: displayName, id_stanza: idStanza }, function (resp) {
                 if (resp.status === 'success') {
                     $('#nickname-container').hide();
                     $('#game-container').show();
@@ -103,10 +117,14 @@
             const storedDisplayName = localStorage.getItem('display_name');
             const loginTime = localStorage.getItem('login_time');
 
+            // Load id_stanza from localStorage
+            var storedIdStanza = localStorage.getItem('id_stanza') || '';
+            $('#id-stanza').val(storedIdStanza);
+
             if (storedUserId && loginTime && (Date.now() - loginTime < 1 * 60 * 60 * 1000)) {
                 window.currentNickname = storedUserId;
                 window.displayName = storedDisplayName;
-                $.post('/assets/server.php', { action: 'join', nickname: storedUserId, display_name: storedDisplayName }, function (response) {
+                $.post('/assets/server.php', { action: 'join', nickname: storedUserId, display_name: storedDisplayName, id_stanza: storedIdStanza }, function (response) {
                     if (response.status === 'success') {
                         $('#nickname-container').hide();
                         $('#game-container').show();
@@ -130,6 +148,30 @@
                 }, 'json');
             });
 
+            // ID Stanza input - only allow numbers
+            $('#id-stanza').on('input', function () {
+                var value = $(this).val().replace(/[^0-9]/g, '');
+                $(this).val(value);
+            });
+
+            // Save ID Stanza on blur (focus out)
+            $('#id-stanza').on('blur', function () {
+                var idStanza = $(this).val();
+                localStorage.setItem('id_stanza', idStanza);
+
+                if (window.isLoggedIn && window.currentNickname) {
+                    $.post('/assets/server.php', {
+                        action: 'set_id_stanza',
+                        nickname: window.currentNickname,
+                        id_stanza: idStanza
+                    }, function (response) {
+                        if (response.status === 'success') {
+                            window.aggiornaDati();
+                        }
+                    }, 'json');
+                }
+            });
+
             function aggiornaDati() {
                 if (window.isLoggedIn) {
                     $.get('/assets/server.php', { action: 'get_all_data', nickname: window.currentNickname, _: new Date().getTime() }, function (response) {
@@ -144,8 +186,11 @@
                         $('#player-list').html(listaGiocatori);
 
                         if (response.giocatori.length > 0) {
+                            // Find first player by id_stanza_time (who set this ID first)
                             var primoGiocatore = response.giocatori.reduce(function (prev, current) {
-                                return (prev.login_time < current.login_time) ? prev : current;
+                                var prevTime = prev.id_stanza_time || prev.login_time;
+                                var currentTime = current.id_stanza_time || current.login_time;
+                                return (prevTime < currentTime) ? prev : current;
                             });
                             if (primoGiocatore.nickname === window.currentNickname) {
                                 $('#start-game').show();
@@ -199,10 +244,12 @@
             window.aggiornaDati = aggiornaDati;
 
             $('#start-game').click(function () {
-                $.post('/assets/server.php', { action: 'start_game' }, function (response) {
+                $.post('/assets/server.php', { action: 'start_game', nickname: window.currentNickname }, function (response) {
                     if (response.status === 'success') {
                         $('#game-id').text('ID Partita: ' + response.game_id);
                         aggiornaDati();
+                    } else if (response.message) {
+                        alert(response.message);
                     }
                 }, 'json');
             });
