@@ -58,6 +58,23 @@ function logPlayer($nickname, $display_name)
     file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
 }
 
+// Remove players inactive for more than 5 minutes
+function cleanupInactivePlayers(&$configData, $config_file)
+{
+    $timeout = 5 * 60; // 5 minutes
+    $now = time();
+    $originalCount = count($configData['giocatori']);
+
+    $configData['giocatori'] = array_values(array_filter($configData['giocatori'], function ($g) use ($now, $timeout) {
+        $lastSeen = isset($g['last_seen']) ? $g['last_seen'] : (isset($g['login_time']) ? $g['login_time'] : 0);
+        return ($now - $lastSeen) < $timeout;
+    }));
+
+    if (count($configData['giocatori']) < $originalCount) {
+        salvaJson($config_file, $configData);
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'];
 
@@ -84,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'ruolo' => '',
                 'numero' => null,
                 'login_time' => time(),
+                'last_seen' => time(),
                 'id_stanza' => $id_stanza,
                 'id_stanza_time' => $id_stanza !== '' ? time() : null
             ]);
@@ -92,8 +110,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Log del nuovo giocatore
             logPlayer($nickname, $display_name);
         } else {
-            // Aggiorna display_name e id_stanza se già presente
+            // Aggiorna display_name, id_stanza e last_seen se già presente
             $configData['giocatori'][$giocatore_index]['display_name'] = $display_name;
+            $configData['giocatori'][$giocatore_index]['last_seen'] = time();
             if (isset($_POST['id_stanza'])) {
                 $configData['giocatori'][$giocatore_index]['id_stanza'] = trim($_POST['id_stanza']);
             }
@@ -279,6 +298,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if ($action == 'get_all_data') {
         $nickname = trim($_GET['nickname']);
         $configData = caricaJson($config_file);
+
+        // Cleanup inactive players
+        cleanupInactivePlayers($configData, $config_file);
+
+        // Update last_seen for current player
+        $playerFound = false;
+        foreach ($configData['giocatori'] as $index => &$giocatore) {
+            if (strcasecmp($giocatore['nickname'], $nickname) == 0) {
+                $giocatore['last_seen'] = time();
+                $playerFound = true;
+                break;
+            }
+        }
+        unset($giocatore);
+        if ($playerFound) {
+            salvaJson($config_file, $configData);
+        }
 
         $word = '';
         $role = '';

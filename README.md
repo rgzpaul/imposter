@@ -37,6 +37,12 @@ The ID Stanza is a numeric room code (max 4 digits) that lets you play with spec
 - Each player takes turns describing the word without saying it
 - Vote to eliminate who you think is the imposter
 
+## Session & Cleanup
+
+- Players stay logged in until they click "Esci" or clear browser data
+- Inactive players are automatically removed after 5 minutes
+- No need to manually clean up abandoned sessions
+
 ## Admin Panel
 
 Access `/admin` to:

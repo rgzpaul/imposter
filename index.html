@@ -88,7 +88,6 @@
             // Salva email come ID e display name per mostrare
             localStorage.setItem('user_id', email);
             localStorage.setItem('display_name', displayName);
-            localStorage.setItem('login_time', Date.now());
 
             // Get id_stanza from localStorage if available
             var idStanza = localStorage.getItem('id_stanza') || '';
@@ -112,16 +111,15 @@
             window.displayName = '';
             window.isLoggedIn = false;
 
-            // Controlla sessione (2 ore)
+            // Check if user is already logged in
             const storedUserId = localStorage.getItem('user_id');
             const storedDisplayName = localStorage.getItem('display_name');
-            const loginTime = localStorage.getItem('login_time');
 
             // Load id_stanza from localStorage
             var storedIdStanza = localStorage.getItem('id_stanza') || '';
             $('#id-stanza').val(storedIdStanza);
 
-            if (storedUserId && loginTime && (Date.now() - loginTime < 1 * 60 * 60 * 1000)) {
+            if (storedUserId) {
                 window.currentNickname = storedUserId;
                 window.displayName = storedDisplayName;
                 $.post('/assets/server.php', { action: 'join', nickname: storedUserId, display_name: storedDisplayName, id_stanza: storedIdStanza }, function (response) {
