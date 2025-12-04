@@ -26,7 +26,7 @@ The ID Stanza is a numeric room code (max 4 digits) that lets you play with spec
 
 ## Roles
 
-- 😇 **Buono (Regular)**: Knows the secret word and tries to find the imposter
+- 😇 **Buono**: Knows the secret word and tries to find the imposter
 - 😈 **Impostore**: Doesn't know the word and tries to blend in
 - 🤪 **Fool**: Knows the word but actually wants to get eliminated
 
@@ -52,3 +52,4 @@ Access `/admin` to:
 - Reset the entire session
 
 Enjoy!
+
