@@ -1,6 +1,6 @@
 {
     "giocatori": [],
     "parola": "",
-    "brutal_mode": false,
+    "brutal_mode": true,
     "game_id": ""
 }
