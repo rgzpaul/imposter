@@ -331,8 +331,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         }
 
-        // Filter players by id_stanza - only show players with the same id_stanza
-        // If no stanza ID is set, show only the current player (not others without stanza ID)
+        // Filter players by id_stanza
         if ($currentPlayerIdStanza === '') {
             $filteredPlayers = array_values(array_filter($configData['giocatori'], function($g) use ($nickname) {
                 return strcasecmp($g['nickname'], $nickname) == 0;
@@ -363,3 +362,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ]);
     }
 }
+
