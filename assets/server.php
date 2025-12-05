@@ -331,10 +331,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         }
 
-        // Filter players by id_stanza - only show players with the same id_stanza
-        // If no stanza ID is set, show no players
+        // Filter players by id_stanza
         if ($currentPlayerIdStanza === '') {
-            $filteredPlayers = [];
+            $filteredPlayers = array_values(array_filter($configData['giocatori'], function($g) use ($nickname) {
+                return strcasecmp($g['nickname'], $nickname) == 0;
+            }));
         } else {
             $filteredPlayers = array_values(array_filter($configData['giocatori'], function($g) use ($currentPlayerIdStanza) {
                 $playerIdStanza = isset($g['id_stanza']) ? $g['id_stanza'] : '';
@@ -361,3 +362,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ]);
     }
 }
+
