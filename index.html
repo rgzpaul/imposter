@@ -98,7 +98,6 @@
                 if (resp.status === 'success') {
                     $('#nickname-container').hide();
                     $('#game-container').show();
-                    $('#last-update').removeClass('hidden');
                     window.currentNickname = email;
                     window.displayName = displayName;
                     window.isLoggedIn = true;
@@ -127,7 +126,6 @@
                     if (response.status === 'success') {
                         $('#nickname-container').hide();
                         $('#game-container').show();
-                        $('#last-update').removeClass('hidden');
                         window.isLoggedIn = true;
                         aggiornaDati();
                     }
@@ -135,7 +133,6 @@
             } else {
                 localStorage.clear();
                 $('#nickname-container').show();
-                $('#last-update').removeClass('hidden');
             }
 
             $('#leave-game').click(function () {
