@@ -13,7 +13,8 @@
 
 // Il secret viene letto, in ordine, da:
 //   1. la variabile d'ambiente PUSHER_SECRET
-//   2. il file assets/pusher-secret.php (NON versionato, generato in fase di deploy)
+//   2. il file assets/pusher-secret.php (NON versionato, generato in fase di deploy,
+//      contenuto: <?php return 'IL_SECRET';)
 $__pusher_secret = getenv('PUSHER_SECRET') ?: '';
 if ($__pusher_secret === '' && file_exists(__DIR__ . '/pusher-secret.php')) {
     $__pusher_secret = (string) (include __DIR__ . '/pusher-secret.php');

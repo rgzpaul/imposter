@@ -58,9 +58,9 @@ Il **secret non e' mai committato**: viene letto dalla variabile d'ambiente
 `.gitignore` e viene generato durante il deploy dal GitHub Actions secret
 `PUSHER_SECRET` (Settings -> Secrets and variables -> Actions).
 
-In locale: copia `assets/pusher-secret.sample.php` in
-`assets/pusher-secret.php` e inserisci il secret. Senza secret il gioco
-funziona comunque, ricadendo sul polling.
+In locale basta creare `assets/pusher-secret.php` con
+`<?php return 'IL_TUO_SECRET';`. Senza secret il gioco funziona comunque,
+ricadendo sul polling.
 
 ## Session & Cleanup
 
