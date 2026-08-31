@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" sizes="192x192" href="/images/icon.png">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
     <script defer src="https://analytics.minisoft.it/script.js" data-website-id="a0a8eaef-dc17-4ad4-8b5b-ccc7325d1bb2"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
@@ -56,6 +57,14 @@
     <a class="hidden w-20 h-6 opacity-0" href="/"></a>
 
     <script>
+        // --- Realtime (Pusher) ---------------------------------------------
+        var PUSHER_KEY = '725f7abcf8f9a470386f';
+        var PUSHER_CLUSTER = 'eu';
+        var PUSHER_EVENT = 'update';
+        var PUSHER_ADMIN_CHANNEL = 'imposter-admin';
+        var HEARTBEAT_MS = 60000;   // rete di sicurezza quando il realtime funziona
+        var FALLBACK_MS = 1500;     // polling se Pusher non e' disponibile
+
         $(document).ready(function () {
             function aggiornaDatiAdmin() {
                 $.get('/assets/server.php', { action: 'get_admin_data' }, function (response) {
@@ -107,6 +116,10 @@
                     $('#players-container').html(containerHTML);
                     $('#brutal-mode-toggle').prop('checked', response.brutal_mode);
 
+                    if (typeof response.pusher_enabled !== 'undefined' && window.setPusherServerEnabled) {
+                        window.setPusherServerEnabled(response.pusher_enabled);
+                    }
+
                 }, 'json').fail(function () {
                     console.log('Errore di connessione al server.');
                 });
@@ -136,8 +149,41 @@
                 }
             });
 
+            var pollTimer = null;
+            var pollIntervalMs = null;
+            var pusherConnected = false;
+            var pusherServerEnabled = true;
+
+            function setPolling(ms) {
+                if (pollIntervalMs === ms) return;
+                pollIntervalMs = ms;
+                if (pollTimer) clearInterval(pollTimer);
+                pollTimer = setInterval(aggiornaDatiAdmin, ms);
+            }
+
+            function refreshPollingMode() {
+                setPolling((pusherConnected && pusherServerEnabled) ? HEARTBEAT_MS : FALLBACK_MS);
+            }
+            window.refreshPollingMode = refreshPollingMode;
+            window.setPusherServerEnabled = function (enabled) {
+                pusherServerEnabled = !!enabled;
+                refreshPollingMode();
+            };
+
+            if (typeof Pusher !== 'undefined') {
+                var pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+                pusher.connection.bind('state_change', function (states) {
+                    pusherConnected = (states.current === 'connected');
+                    refreshPollingMode();
+                    if (pusherConnected) aggiornaDatiAdmin();
+                });
+                pusher.subscribe(PUSHER_ADMIN_CHANNEL).bind(PUSHER_EVENT, function () {
+                    aggiornaDatiAdmin();
+                });
+            }
+
             aggiornaDatiAdmin();
-            setInterval(aggiornaDatiAdmin, 1500);
+            refreshPollingMode();
         });
     </script>
 

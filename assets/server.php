@@ -4,8 +4,31 @@ header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Pragma: no-cache");
 header("Expires: Thu, 01 Jan 1970 00:00:00 GMT");
 
+require_once __DIR__ . '/pusher.php';
+
 $parole_file = 'list.json';
 $config_file = 'config.json';
+
+// Elenco delle stanze distinte presenti in configurazione
+function stanzeDistinte($configData)
+{
+    $stanze = [];
+    foreach ($configData['giocatori'] as $giocatore) {
+        $stanze[] = isset($giocatore['id_stanza']) ? $giocatore['id_stanza'] : '';
+    }
+    return array_values(array_unique($stanze));
+}
+
+// Stanza di un singolo giocatore ('' se non trovato)
+function stanzaDiGiocatore($configData, $nickname)
+{
+    foreach ($configData['giocatori'] as $giocatore) {
+        if (strcasecmp($giocatore['nickname'], $nickname) == 0) {
+            return isset($giocatore['id_stanza']) ? $giocatore['id_stanza'] : '';
+        }
+    }
+    return null;
+}
 
 function caricaJson($file)
 {
@@ -65,13 +88,19 @@ function cleanupInactivePlayers(&$configData, $config_file)
     $now = time();
     $originalCount = count($configData['giocatori']);
 
-    $configData['giocatori'] = array_values(array_filter($configData['giocatori'], function ($g) use ($now, $timeout) {
+    $stanzeRimosse = [];
+    $configData['giocatori'] = array_values(array_filter($configData['giocatori'], function ($g) use ($now, $timeout, &$stanzeRimosse) {
         $lastSeen = isset($g['last_seen']) ? $g['last_seen'] : (isset($g['login_time']) ? $g['login_time'] : 0);
-        return ($now - $lastSeen) < $timeout;
+        $attivo = ($now - $lastSeen) < $timeout;
+        if (!$attivo) {
+            $stanzeRimosse[] = isset($g['id_stanza']) ? $g['id_stanza'] : '';
+        }
+        return $attivo;
     }));
 
     if (count($configData['giocatori']) < $originalCount) {
         salvaJson($config_file, $configData);
+        pusherNotifyStanze(array_unique($stanzeRimosse), 'cleanup');
     }
 }
 
@@ -106,17 +135,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'id_stanza_time' => $id_stanza !== '' ? time() : null
             ]);
             salvaJson($config_file, $configData);
+            pusherNotifyStanze([$id_stanza], 'join');
 
             // Log del nuovo giocatore
             logPlayer($nickname, $display_name);
         } else {
             // Aggiorna display_name, id_stanza e last_seen se già presente
+            $vecchiaStanza = isset($configData['giocatori'][$giocatore_index]['id_stanza'])
+                ? $configData['giocatori'][$giocatore_index]['id_stanza'] : '';
+            $nuovaStanza = $vecchiaStanza;
             $configData['giocatori'][$giocatore_index]['display_name'] = $display_name;
             $configData['giocatori'][$giocatore_index]['last_seen'] = time();
             if (isset($_POST['id_stanza'])) {
-                $configData['giocatori'][$giocatore_index]['id_stanza'] = trim($_POST['id_stanza']);
+                $nuovaStanza = trim($_POST['id_stanza']);
+                $configData['giocatori'][$giocatore_index]['id_stanza'] = $nuovaStanza;
+                if ($nuovaStanza !== $vecchiaStanza) {
+                    $configData['giocatori'][$giocatore_index]['id_stanza_time'] = $nuovaStanza !== '' ? time() : null;
+                }
             }
             salvaJson($config_file, $configData);
+            pusherNotifyStanze([$vecchiaStanza, $nuovaStanza], 'rejoin');
         }
 
         echo json_encode(['status' => 'success']);
@@ -125,18 +163,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action == 'leave') {
         $nickname = trim($_POST['nickname']);
         $configData = caricaJson($config_file);
+        $stanzaUscita = stanzaDiGiocatore($configData, $nickname);
 
         $configData['giocatori'] = array_filter($configData['giocatori'], function ($giocatore) use ($nickname) {
             return strcasecmp($giocatore['nickname'], $nickname) != 0;
         });
         $configData['giocatori'] = array_values($configData['giocatori']);
         salvaJson($config_file, $configData);
+        pusherNotifyStanze([$stanzaUscita !== null ? $stanzaUscita : ''], 'leave');
         echo json_encode(['status' => 'success']);
     }
 
     if ($action == 'reset') {
+        $stanzeAttive = stanzeDistinte(caricaJson($config_file));
         $configData = ['giocatori' => [], 'parola' => '', 'brutal_mode' => false, 'game_id' => ''];
         salvaJson($config_file, $configData);
+        pusherNotifyStanze($stanzeAttive, 'reset');
 
         echo json_encode(['status' => 'success', 'message' => 'Sessione resettata con successo.']);
     }
@@ -146,6 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $configData = caricaJson($config_file);
         $configData['brutal_mode'] = $brutal_mode;
         salvaJson($config_file, $configData);
+        pusherNotifyAdmin('brutal_mode');
 
         echo json_encode(['status' => 'success']);
     }
@@ -154,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nickname = trim($_POST['nickname']);
         $id_stanza = trim($_POST['id_stanza']);
         $configData = caricaJson($config_file);
+        $oldIdStanza = '';
 
         foreach ($configData['giocatori'] as $index => &$giocatore) {
             if (strcasecmp($giocatore['nickname'], $nickname) == 0) {
@@ -168,6 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         unset($giocatore);
         salvaJson($config_file, $configData);
+        pusherNotifyStanze([$oldIdStanza, $id_stanza], 'set_id_stanza');
 
         echo json_encode(['status' => 'success']);
     }
@@ -249,6 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             salvaJson($config_file, $configData);
+            pusherNotifyStanze([$starterIdStanza], 'start_game');
 
             echo json_encode([
                 'status' => 'success',
@@ -263,6 +309,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $action = $_GET['action'];
+
+    if ($action == 'get_pusher_config') {
+        echo json_encode([
+            'enabled' => pusherEnabled(),
+            'key' => PUSHER_KEY,
+            'cluster' => PUSHER_CLUSTER,
+            'event' => PUSHER_EVENT,
+            'admin_channel' => PUSHER_ADMIN_CHANNEL
+        ]);
+    }
 
     if ($action == 'get_players') {
         echo json_encode(caricaJson($config_file));
@@ -348,7 +404,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'game_id' => $stanzaGameId,
             'word' => $word,
             'role' => $role,
-            'id_stanza' => $currentPlayerIdStanza
+            'id_stanza' => $currentPlayerIdStanza,
+            'pusher_enabled' => pusherEnabled()
         ]);
     }
 
@@ -358,7 +415,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'giocatori' => $configData['giocatori'],
             'brutal_mode' => $configData['brutal_mode'],
             'game_id' => $configData['game_id'],
-            'game_word' => $configData['parola']
+            'game_word' => $configData['parola'],
+            'pusher_enabled' => pusherEnabled()
         ]);
     }
 }

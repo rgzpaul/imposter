@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/png" sizes="192x192" href="/images/icon.png">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
     <script defer src="https://analytics.minisoft.it/script.js" data-website-id="a0a8eaef-dc17-4ad4-8b5b-ccc7325d1bb2"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -104,6 +105,63 @@
                     window.aggiornaDati();
                 }
             }, 'json');
+        }
+
+        // --- Realtime (Pusher) ---------------------------------------------
+        // La chiave e' pubblica per definizione: il secret sta solo sul server.
+        var PUSHER_KEY = '725f7abcf8f9a470386f';
+        var PUSHER_CLUSTER = 'eu';
+        var PUSHER_EVENT = 'update';
+        var HEARTBEAT_MS = 45000;   // tiene vivo last_seen quando il realtime funziona
+        var FALLBACK_MS = 1500;     // polling di emergenza se Pusher non e' disponibile
+
+        var pusher = null;
+        var currentChannelName = null;
+        var pollTimer = null;
+        var pollIntervalMs = null;
+        var pusherConnected = false;
+        var pusherServerEnabled = true;
+
+        // Deve restare allineato a pusherChannelForStanza() in assets/pusher.php
+        function channelForStanza(idStanza) {
+            var id = String(idStanza || '').replace(/[^0-9]/g, '');
+            return 'imposter-stanza-' + (id === '' ? 'default' : id);
+        }
+
+        function setPolling(ms) {
+            if (pollIntervalMs === ms) return;
+            pollIntervalMs = ms;
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = setInterval(function () { window.aggiornaDati(); }, ms);
+        }
+
+        function refreshPollingMode() {
+            setPolling((pusherConnected && pusherServerEnabled) ? HEARTBEAT_MS : FALLBACK_MS);
+        }
+
+        function initPusher() {
+            if (pusher || typeof Pusher === 'undefined') return;
+            pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+            pusher.connection.bind('state_change', function (states) {
+                pusherConnected = (states.current === 'connected');
+                refreshPollingMode();
+                if (pusherConnected) {
+                    // recupera gli eventi persi mentre eravamo disconnessi
+                    window.aggiornaDati();
+                }
+            });
+        }
+
+        function subscribeStanza(idStanza) {
+            initPusher();
+            if (!pusher) return;
+            var name = channelForStanza(idStanza);
+            if (name === currentChannelName) return;
+            if (currentChannelName) pusher.unsubscribe(currentChannelName);
+            currentChannelName = name;
+            pusher.subscribe(name).bind(PUSHER_EVENT, function () {
+                window.aggiornaDati();
+            });
         }
 
         $(document).ready(function () {
@@ -231,6 +289,12 @@
                             window.location.reload();
                         }
 
+                        if (typeof response.pusher_enabled !== 'undefined') {
+                            pusherServerEnabled = !!response.pusher_enabled;
+                        }
+                        subscribeStanza(response.id_stanza);
+                        refreshPollingMode();
+
                         var currentTime = new Date();
                         var formattedTime = currentTime.toLocaleTimeString('it-IT', { hour12: false });
                         $('#last-update').text(formattedTime);
@@ -250,7 +314,10 @@
                 }, 'json');
             });
 
-            setInterval(aggiornaDati, 1500);
+            // Con Pusher attivo il polling resta solo come heartbeat (last_seen)
+            // e come rete di sicurezza se la connessione realtime cade.
+            initPusher();
+            refreshPollingMode();
         });
     </script>
 

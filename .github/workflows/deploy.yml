@@ -13,6 +13,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Inject Pusher secret
+        env:
+          PUSHER_SECRET: ${{ secrets.PUSHER_SECRET }}
+        run: |
+          if [ -z "$PUSHER_SECRET" ]; then
+            echo "::error::Secret PUSHER_SECRET non configurato: gli aggiornamenti realtime resterebbero disattivati."
+            exit 1
+          fi
+          printf '<?php\nreturn %s;\n' "'$PUSHER_SECRET'" > assets/pusher-secret.php
+
       - name: Deploy to FTP server
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
