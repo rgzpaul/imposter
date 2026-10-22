@@ -1,5 +1,5 @@
-# Blocca l'accesso web ai log
-<FilesMatch "\.log$">
+# Blocca l'accesso web ai log e ai dati dei giocatori (config.json)
+<FilesMatch "(\.log|^config\.json)$">
     <IfModule mod_authz_core.c>
         Require all denied
     </IfModule>
